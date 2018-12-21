@@ -1,0 +1,119 @@
+---
+title: "Leslie Salt Regression"
+author: "Advanced Statistics Group 8"
+date: "12/11/2018"
+output:
+  html_document: default
+---
+
+Leslie Salt Regression
+```{r setup2, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(corrplot)
+library(psych)
+library(nFactors)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(ggplot2)
+#Load the Leslie Salt Datset
+LeslieSaltData = read.csv("/Users/ashwin/Desktop/Work/PGPBABI/Advanced Statistics/GroupAssignment/Dataset_LeslieSalt.csv")
+```
+
+### 1. Load and analyse the structure of the dataset
+```{r cars}
+str(LeslieSaltData)
+kable(head(LeslieSaltData)) %>%
+    kable_styling(c("striped","bordered"))
+
+```
+ **Nature of the Variables **   
+Price is the dependent variable and all other variables are independent.  
+The independent variables **Flood** and **County** should be factor variables and not integer.
+
+
+### 2. Transformation  
+Converting County and Flood to factor variables  
+```{r factor, echo=TRUE}
+LeslieSaltData$County <- as.factor(LeslieSaltData$County)
+levels(LeslieSaltData$County) <- c("San Mateo", "Santa Clara")
+
+LeslieSaltData$Flood <- as.factor(LeslieSaltData$Flood)
+levels(LeslieSaltData$Flood) <- c("No", "Yes")
+
+str(LeslieSaltData[c("County","Flood")])
+```
+
+### 3. Analyse Price using plots for identifying outliers and correlations
+``` {r boxplot}
+boxplot(LeslieSaltData$Price)
+```
+  
+ From the boxplot of **Price** we have an outlier which will impact the prediction. We will therefore remove the outlier.
+ 
+
+ 
+``` {r boxplot2}
+LeslieSaltData <- LeslieSaltData[-26,]
+boxplot(LeslieSaltData$Price)
+```
+
+``` {r plot}
+LeslieSaltMatrix <- as.matrix(dplyr::select_if(LeslieSaltData, is.numeric))
+corrplot(cor(LeslieSaltMatrix), method = "circle", 
+          type="full",       #Type of matrix to be displayed
+          order = "hclust",  #Hierarchical Clustering
+          tl.col = "black") # Column color black
+
+```  
+
+
+We can see that **Price** has a positive correlation with **Elevation** and **Date**.  
+**Price** has a negative correlation with **Sewer**.  
+**Price** has a minimal correlation with **Size** and **Distance**.  
+
+### 4. Model 1: Perform Regression with all the independent variables
+``` {r Regression1}
+reg1 = lm(Price ~., data = LeslieSaltData)
+summary(reg1)
+```
+  
+We have a very low p-value. Therefore this is a valid model.  
+When analyzing the variable p-values, we can see that the variables **County, Size, Sewer and Distance** have a high p-value. Therefore, we will ignore these variables in our next regression model.
+
+### 6. Model 2: Regression without **County, Size, Sewer and Distance** variables
+``` {r Regression2}
+reg2 = lm(Price ~.-County-Size-Sewer-Distance, data = LeslieSaltData)
+summary(reg2)
+```
+  
+We again have a very low p-value. Therefore this is a valid model.  
+One observation is the R-squared value has decreased compared to the previous model, therefore we will reject this model.
+
+
+### 7. Model 3 : Regression without **Size** and **Distance**  variable  
+We will remove Distance and Size variables from our model as they are correlated as per the corrplot and this creates a problem of **Multicollinearity**
+``` {r Regression3}
+reg3 = lm(Price ~.-Distance -Size, data = LeslieSaltData)
+summary(reg3)
+```
+  
+We again have a very low p-value and R-squared is higher than model 2. Therefore we will go with this model.
+
+### 8. Prediction for the Problem Statement with Model 3
+
+**Problem Statement** : The Leslie property contained 246.8 acres and was located right on the San Francisco Bay. The land had been used for salt evaporation and had an elevation of exactly sea level. However, the property was diked so that the waters from the bay park were kept out. 
+``` {r Prediction}
+LeslieProperty <- data.frame(Price = 0, County = "Santa Clara", Size = 246.8, Elevation = 0, Sewer = 0, Date = c(1,2,3), Flood = "No" , Distance = 0)
+LeslieProperty$PredictedPrice <- predict(reg3,LeslieProperty) * 1000
+```
+  
+  
+### 9. Conclusion   
+The below table shows the Predicted prices of the Leslie property if purchased in the next 3 months.
+
+``` {r predictedPrice}
+kable(head(LeslieProperty)) %>%
+    kable_styling(c("striped","bordered"))
+```
+  
